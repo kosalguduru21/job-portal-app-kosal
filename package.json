@@ -1,0 +1,20 @@
+{
+  "name": "job-portal-app",
+  "version": "1.0.0",
+  "description": "- Job Seeker, Employer & Admin roles     - Authentication(Login) & Logout     - Protected Routes     - Role Based Access Control( RBAC )     - Job posting & application management",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.9.1"
+  }
+}

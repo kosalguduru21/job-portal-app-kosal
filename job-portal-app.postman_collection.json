@@ -1,0 +1,964 @@
+{
+  "info": {
+    "name": "Job Portal App (job-portal-app)",
+    "description": "Collection for testing the Job Portal Backend App: auth, job seeker, employer, admin, and negative/security test cases. Uses cookie-based JWT auth (accessToken), so keep Postman's cookie jar enabled for localhost.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "applicationId",
+      "value": ""
+    },
+    {
+      "key": "jobseekerUserId",
+      "value": ""
+    },
+    {
+      "key": "employerEmail",
+      "value": "employer1@example.com"
+    },
+    {
+      "key": "jobseekerEmail",
+      "value": "seeker1@example.com"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "password",
+      "value": "test123"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register Employer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Employer\",\n  \"email\": \"{{employerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"EMPLOYER\",\n  \"companyName\": \"Acme Corp\",\n  \"companyDescription\": \"We build things.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Job Seeker",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jamie Seeker\",\n  \"email\": \"{{jobseekerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"JOBSEEKER\",\n  \"skills\": [\"Node.js\", \"MongoDB\", \"Express\"],\n  \"experience\": \"1 year building REST APIs\",\n  \"education\": [\n    { \"degree\": \"B.Tech\", \"institution\": \"State University\", \"fieldOfStudy\": \"Computer Science\", \"startYear\": 2019, \"endYear\": 2023 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('jobseekerUserId', body.data._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register - Duplicate Email (expect 500 via error mw)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Duplicate\",\n  \"email\": \"{{employerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"EMPLOYER\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Duplicate email rejected (non-2xx)', () => pm.expect(pm.response.code).to.not.be.oneOf([200,201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Employer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{employerEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Auth cookie set', () => {",
+                  "  const cookie = pm.cookies.get('accessToken');",
+                  "  pm.expect(cookie).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Wrong Password (expect 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{employerEmail}}\",\n  \"password\": \"WrongPassword\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Unknown Email (expect 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody@example.com\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Job Seeker Flow",
+      "item": [
+        {
+          "name": "Login Job Seeker",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{jobseekerEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "View Own Profile",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/profile"
+          }
+        },
+        {
+          "name": "Get Profile - No Token (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/profile",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "accessToken="
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 without token', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile - Invalid Token (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/profile",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "accessToken=not.a.valid.jwt"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 invalid token', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Own Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/jobseeker-api/profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"experience\": \"1.5 years, now including MongoDB aggregation pipelines\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Job Seeker - Create Job (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/employer-api/jobs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Should Fail\",\n  \"companyName\": \"N/A\",\n  \"description\": \"N/A\",\n  \"location\": \"N/A\",\n  \"employmentType\": \"FULL_TIME\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 forbidden for jobseeker', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Browse All Open Jobs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/jobs"
+          }
+        },
+        {
+          "name": "View Single Job By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/jobs/{{jobId}}"
+          }
+        },
+        {
+          "name": "Apply For Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/jobseeker-api/jobs/{{jobId}}/apply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"coverLetter\": \"I would love to build this API!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('applicationId', body.data._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Apply Again - Duplicate (expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/jobseeker-api/jobs/{{jobId}}/apply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"coverLetter\": \"Trying again\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 duplicate application', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "View My Applications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/applications"
+          }
+        },
+        {
+          "name": "View My Application Status By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/applications/{{applicationId}}"
+          }
+        },
+        {
+          "name": "Logout Job Seeker",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth-api/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access Profile After Logout (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobseeker-api/profile"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 after logout', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Employer Flow",
+      "item": [
+        {
+          "name": "Login Employer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{employerEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Job Posting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/employer-api/jobs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Backend Developer (Node.js)\",\n  \"companyName\": \"Acme Corp\",\n  \"description\": \"Build and maintain REST APIs.\",\n  \"location\": \"Remote\",\n  \"employmentType\": \"FULL_TIME\",\n  \"salaryRange\": { \"min\": 60000, \"max\": 90000, \"currency\": \"USD\" },\n  \"requiredSkills\": [\"Node.js\", \"Express\", \"MongoDB\"],\n  \"experienceRequired\": \"1-3 years\",\n  \"applicationDeadline\": \"2026-12-31\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('jobId', body.data._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Job - Invalid Data (strict schema throw)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/employer-api/jobs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Missing required fields\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Validation error (non-2xx)', () => pm.expect(pm.response.code).to.not.be.oneOf([200,201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "View My Job Postings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/employer-api/jobs"
+          }
+        },
+        {
+          "name": "View Single Own Job",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/employer-api/jobs/{{jobId}}"
+          }
+        },
+        {
+          "name": "Update My Job Posting",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/employer-api/jobs/{{jobId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"salaryRange\": { \"min\": 65000, \"max\": 95000, \"currency\": \"USD\" }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "View Applications For My Job",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/employer-api/jobs/{{jobId}}/applications"
+          }
+        },
+        {
+          "name": "Update Application Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/employer-api/applications/{{applicationId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHORTLISTED\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Application Status - Invalid Value (expect error)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/employer-api/applications/{{applicationId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"NOT_A_REAL_STATUS\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rejected (non-2xx)', () => pm.expect(pm.response.code).to.not.be.oneOf([200,201]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Cross-User Authorization Tests",
+      "item": [
+        {
+          "name": "Register Second Employer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Other Employer\",\n  \"email\": \"employer2@example.com\",\n  \"password\": \"{{password}}\",\n  \"role\": \"EMPLOYER\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login Second Employer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"employer2@example.com\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Second Employer Tries To Update First Employer's Job (expect 401)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/employer-api/jobs/{{jobId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hijacked title\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 forbidden', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Second Employer Tries To View First Employer's Applications (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/employer-api/jobs/{{jobId}}/applications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 forbidden', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Admin Flow",
+      "item": [
+        {
+          "name": "Register Admin (self-register, then promote manually)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Platform Admin\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "description": "Registers as JOBSEEKER via the public endpoint (self-registration can never create ADMIN). In a real deployment, open Mongo shell/Compass and set role:'ADMIN' for this user manually."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-Admin Tries Admin Route (expect 403 before promotion)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin-api/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 before role is promoted', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Users (after manual promotion to ADMIN in db)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin-api/users"
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin-api/users/{{jobseekerUserId}}"
+          }
+        },
+        {
+          "name": "Deactivate a User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin-api/users/{{jobseekerUserId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivated User Tries To Login (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth-api/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{jobseekerEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 deactivated account', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reactivate a User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin-api/users/{{jobseekerUserId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Job Postings (any status)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin-api/jobs"
+          }
+        },
+        {
+          "name": "Get Job Posting By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin-api/jobs/{{jobId}}"
+          }
+        },
+        {
+          "name": "Remove Inappropriate Job Posting",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/admin-api/jobs/{{jobId}}"
+          }
+        },
+        {
+          "name": "Delete a User",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/admin-api/users/{{jobseekerUserId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
